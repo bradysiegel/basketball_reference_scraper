@@ -1,7 +1,47 @@
 import pandas as pd
+import math
 from datetime import datetime
 from requests import get
 from bs4 import BeautifulSoup
+from requests_html import HTMLSession
+from io import StringIO
+
+def get_per_game_stats(year):
+    session = HTMLSession()
+    r = session.get(f'https://www.basketball-reference.com/leagues/NBA_{year}.html')
+    r.html.render()
+    soup = BeautifulSoup(r.html.raw_html, 'html.parser')
+    table = soup.find('table', attrs={'id': 'per_game-team'})
+    df = pd.DataFrame()
+    if table:
+        month_df = pd.read_html(str(table).replace('*', ''))[0]
+        df = pd.concat([df, month_df])
+
+        invalid = ['Rk', math.nan]
+        df = df[~df['Rk'].isin(invalid)]
+
+        return df
+
+
+def get_advanced_stats(year):
+    session = HTMLSession()
+    r = session.get(f'https://www.basketball-reference.com/leagues/NBA_{year}.html')
+    r.html.render()
+    soup = BeautifulSoup(r.html.raw_html, 'html.parser')
+    table = soup.find('table', attrs={'id': 'advanced-team'})
+    df = pd.DataFrame()
+    if table:
+        month_df = pd.read_html(str(table).replace('*', ''))[0]
+        df = pd.concat([df, month_df])
+
+        invalid = ['Rk', math.nan]
+        df = df[~df[('Unnamed: 0_level_0','Rk')].isin(invalid)]
+
+        data = df.to_csv()
+        datalines = data.split('\n')
+
+        return pd.read_csv(StringIO('\n'.join(datalines[1:])))
+
 
 def get_schedule(season, playoffs=False):
     months = ['October', 'November', 'December', 'January', 'February', 'March',
